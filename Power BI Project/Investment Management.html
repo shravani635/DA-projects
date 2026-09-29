@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Investment Management Dashboard</title>
+<style>
+    * { box-sizing: border-box; }
+    html, body {
+        margin: 0;
+        width: 100%;
+        min-height: 100%;
+        font-family: "Segoe UI", Arial, sans-serif;
+        background: #07111f;
+        color: #fff;
+    }
+
+    body {
+        overflow-x: hidden;
+        position: relative;
+    }
+
+    /* Animated gradient background */
+    body::before,
+    body::after {
+        content: "";
+        position: fixed;
+        width: 520px;
+        height: 520px;
+        border-radius: 50%;
+        filter: blur(90px);
+        opacity: .45;
+        z-index: -2;
+        animation: float 12s ease-in-out infinite alternate;
+    }
+
+    body::before {
+        background: #6c3cff;
+        top: -180px;
+        left: -120px;
+    }
+
+    body::after {
+        background: #00c6a7;
+        right: -180px;
+        bottom: -180px;
+        animation-delay: -5s;
+    }
+
+    .background {
+        position: fixed;
+        inset: 0;
+        z-index: -3;
+        background:
+            radial-gradient(circle at 20% 20%, rgba(86,60,255,.20), transparent 32%),
+            radial-gradient(circle at 80% 75%, rgba(0,198,167,.18), transparent 32%),
+            linear-gradient(135deg, #07111f, #0c1830 48%, #07111f);
+    }
+
+    .background span {
+        position: absolute;
+        display: block;
+        width: 7px;
+        height: 7px;
+        background: rgba(255,255,255,.28);
+        border-radius: 50%;
+        animation: drift linear infinite;
+    }
+
+    .background span:nth-child(1){left:8%;animation-duration:13s}
+    .background span:nth-child(2){left:22%;animation-duration:17s;animation-delay:2s}
+    .background span:nth-child(3){left:39%;animation-duration:11s;animation-delay:5s}
+    .background span:nth-child(4){left:57%;animation-duration:19s;animation-delay:1s}
+    .background span:nth-child(5){left:74%;animation-duration:14s;animation-delay:4s}
+    .background span:nth-child(6){left:91%;animation-duration:16s;animation-delay:7s}
+
+    .page {
+        min-height: 100vh;
+        padding: 26px;
+    }
+
+    .header {
+        max-width: 1500px;
+        margin: 0 auto 22px;
+        padding: 20px 24px;
+        border: 1px solid rgba(255,255,255,.13);
+        border-radius: 22px;
+        background: rgba(8,18,35,.64);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 18px 55px rgba(0,0,0,.28);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+    }
+
+    .title-wrap h1 {
+        margin: 0;
+        font-size: clamp(24px, 3vw, 38px);
+        letter-spacing: .3px;
+        background: linear-gradient(90deg, #ffffff, #a99aff, #63e8d0);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .title-wrap p {
+        margin: 7px 0 0;
+        color: #aebbd0;
+        font-size: 14px;
+    }
+
+    .status {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 15px;
+        border-radius: 999px;
+        background: rgba(0,198,167,.10);
+        border: 1px solid rgba(0,198,167,.28);
+        color: #8ff3df;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #35e5c0;
+        box-shadow: 0 0 14px #35e5c0;
+        animation: pulse 1.8s infinite;
+    }
+
+    .dashboard {
+        max-width: 1500px;
+        margin: 0 auto;
+        border-radius: 24px;
+        padding: 10px;
+        background: linear-gradient(135deg, rgba(120,88,255,.75), rgba(0,198,167,.55));
+        box-shadow: 0 25px 80px rgba(0,0,0,.38);
+    }
+
+    .iframe-shell {
+        border-radius: 17px;
+        overflow: hidden;
+        background: #fff;
+        position: relative;
+    }
+
+    iframe {
+        display: block;
+        width: 100%;
+        height: min(78vh, 900px);
+        min-height: 620px;
+        border: 0;
+    }
+
+    .footer {
+        max-width: 1500px;
+        margin: 15px auto 0;
+        text-align: center;
+        color: #8e9bb0;
+        font-size: 12px;
+    }
+
+    @keyframes float {
+        from { transform: translate(0,0) scale(1); }
+        to { transform: translate(80px,55px) scale(1.18); }
+    }
+
+    @keyframes drift {
+        0% { transform: translateY(105vh) scale(.5); opacity: 0; }
+        15% { opacity: .7; }
+        85% { opacity: .35; }
+        100% { transform: translateY(-15vh) scale(1.2); opacity: 0; }
+    }
+
+    @keyframes pulse {
+        0%,100% { opacity: .55; transform: scale(.8); }
+        50% { opacity: 1; transform: scale(1.15); }
+    }
+
+    @media (max-width: 700px) {
+        .page { padding: 10px; }
+        .header { padding: 16px; border-radius: 17px; }
+        .status { display: none; }
+        iframe { min-height: 560px; height: 78vh; }
+    }
+</style>
+</head>
+<body>
+
+<div class="background" aria-hidden="true">
+    <span></span><span></span><span></span>
+    <span></span><span></span><span></span>
+</div>
+
+<main class="page">
+    <header class="header">
+        <div class="title-wrap">
+            <h1>Investment Management</h1>
+            <p>Interactive investment analytics dashboard</p>
+        </div>
+        <div class="status">
+            <span class="dot"></span>
+            Dashboard Live
+        </div>
+    </header>
+
+    <section class="dashboard">
+        <div class="iframe-shell">
+            <iframe
+                title="Investment Management"
+                src="https://app.powerbi.com/view?r=eyJrIjoiZmU4MjEwYTgtMTA0Ni00MjM4LWExYTItN2Q1MTJjY2ViYWIxIiwidCI6IjVmOTA5NjYwLWUxMDQtNDNkNC1hOGViLTA2YjNjNTkxYjBiMSJ9"
+                allowFullScreen="true">
+            </iframe>
+        </div>
+    </section>
+
+    <div class="footer">
+        Investment Management • Power BI Analytics
+    </div>
+</main>
+
+</body>
+</html>
