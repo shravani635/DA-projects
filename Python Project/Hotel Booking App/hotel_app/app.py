@@ -197,13 +197,18 @@ DEPOSIT_LABELS = {
 }
 DEPOSIT_LABELS_REVERSE = {v: k for k, v in DEPOSIT_LABELS.items()}
 
+ROOM_TYPE_LABELS = {
+    "A": "AC", "B": "AC", "C": "AC", "D": "AC", "E": "AC",
+    "F": "Non-AC", "G": "Non-AC", "H": "Non-AC", "L": "Non-AC", "P": "Non-AC",
+}
+
 FRIENDLY_BASE = {
     "hotel_type": "Hotel type",
     "arrival_date_month": "Arrival month",
     "meal": "Meal plan",
     "market_segment": "Market segment",
     "distribution_channel": "Distribution channel",
-    "reserved_room_type": "Room type",
+    "room_ac_type": "Room type",
     "deposit_type": "Payment method",
     "customer_type": "Customer type",
 }
@@ -248,7 +253,7 @@ FEATURE_COLUMNS_NUM = [
 ]
 FEATURE_COLUMNS_CAT = [
     "hotel_type", "arrival_date_month", "meal", "market_segment",
-    "distribution_channel", "reserved_room_type", "deposit_type", "customer_type",
+    "distribution_channel", "room_ac_type", "deposit_type", "customer_type",
 ]
 FEATURE_COLUMNS = FEATURE_COLUMNS_NUM + FEATURE_COLUMNS_CAT
 
@@ -260,8 +265,8 @@ FEATURE_COLUMNS = FEATURE_COLUMNS_NUM + FEATURE_COLUMNS_CAT
 def load_data():
     df = pd.read_csv(DATA_PATH)
     df["hotel_type"] = df["hotel"].str.split(" - ").str[0]
+    df["room_ac_type"] = df["reserved_room_type"].map(ROOM_TYPE_LABELS).fillna("Non-AC")
     df["children"] = df["children"].fillna(0)
-    df["country"] = df["country"].fillna("Unknown")
     df["total_nights"] = df["stays_in_weekend_nights"] + df["stays_in_week_nights"]
     df["revenue"] = df["adr"] * df["total_nights"]
     df["arrival_date_month"] = pd.Categorical(df["arrival_date_month"], categories=MONTH_ORDER, ordered=True)
@@ -366,7 +371,7 @@ with tab_dashboard:
         if "cross_filters" not in st.session_state:
             st.session_state.cross_filters = {
                 "arrival_date_month": None, "hotel_type": None, "city": None,
-                "market_segment": None, "country": None,
+                "market_segment": None,
             }
         cf = st.session_state.cross_filters
         cross = apply_cross_filters(filtered, cf)
@@ -438,9 +443,7 @@ with tab_dashboard:
             fig.update_layout(xaxis_title="", yaxis_title="ADR", showlegend=False)
             st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-        col5, col6 = st.columns(2)
-
-        with col5, st.container(border=True):
+        with st.container(border=True):
             own = apply_cross_filters(filtered, cf, exclude="market_segment")
             seg = own["market_segment"].value_counts().reset_index()
             seg.columns = ["market_segment", "bookings"]
@@ -458,17 +461,6 @@ with tab_dashboard:
                     st.session_state.cross_filters["market_segment"] = new_val
                     st.rerun()
 
-        with col6, st.container(border=True):
-            own = apply_cross_filters(filtered, cf, exclude="country")
-            top_countries = own["country"].value_counts().head(10).reset_index()
-            top_countries.columns = ["country", "bookings"]
-            fig = px.bar(top_countries, x="country", y="bookings", title="Top 10 guest countries")
-            fig.update_traces(marker_color=bar_colors(top_countries["country"], cf["country"], PBI_PALETTE))
-            fig.update_layout(xaxis_title="", yaxis_title="Bookings", dragmode=False)
-            event = st.plotly_chart(fig, use_container_width=True, on_select="rerun", selection_mode="points",
-                                     key="country_chart", config={"displayModeBar": False})
-            handle_click(event, "country")
-
 # --------------------------------------------------------------------------
 # TAB 2: Search & Browse
 # --------------------------------------------------------------------------
@@ -477,9 +469,9 @@ with tab_search:
 
     search_col1, search_col2, search_col3 = st.columns(3)
     with search_col1:
-        country_filter = st.multiselect("Country", sorted(df["country"].unique()), default=[])
+        city_filter = st.multiselect("City", sorted(df["city"].dropna().unique()), default=[])
     with search_col2:
-        room_filter = st.multiselect("Reserved room type", sorted(df["reserved_room_type"].unique()), default=[])
+        room_filter = st.multiselect("Room type", sorted(df["room_ac_type"].unique()), default=[])
     with search_col3:
         deposit_display = [DEPOSIT_LABELS.get(d, d) for d in sorted(df["deposit_type"].unique())]
         deposit_filter_display = st.multiselect("Payment method", deposit_display, default=[])
@@ -497,10 +489,10 @@ with tab_search:
     )
 
     result = filtered.copy()
-    if country_filter:
-        result = result[result["country"].isin(country_filter)]
+    if city_filter:
+        result = result[result["city"].isin(city_filter)]
     if room_filter:
-        result = result[result["reserved_room_type"].isin(room_filter)]
+        result = result[result["room_ac_type"].isin(room_filter)]
     if deposit_filter:
         result = result[result["deposit_type"].isin(deposit_filter)]
     result = result[
@@ -510,21 +502,21 @@ with tab_search:
     st.write(f"**{len(result):,} bookings** match your search")
 
     display_cols = [
-        "hotel_type", "city", "country", "arrival_date_year", "arrival_date_month",
+        "hotel_type", "city", "arrival_date_year", "arrival_date_month",
         "arrival_date_day_of_month", "adults", "children", "babies",
-        "reserved_room_type", "deposit_type", "customer_type", "lead_time",
+        "room_ac_type", "deposit_type", "customer_type", "lead_time",
         "adr", "total_of_special_requests", "reservation_status",
     ]
     result_display = result[display_cols].head(2000).copy()
     result_display["deposit_type"] = result_display["deposit_type"].map(DEPOSIT_LABELS).fillna(result_display["deposit_type"])
-    result_display = result_display.rename(columns={"deposit_type": "payment_method"})
+    result_display = result_display.rename(columns={"deposit_type": "payment_method", "room_ac_type": "room_type"})
     st.dataframe(result_display, use_container_width=True, height=450)
     if len(result) > 2000:
         st.caption("Showing first 2,000 of the matching rows. Narrow your filters or download the full result below.")
 
     export_df = result[display_cols].copy()
     export_df["deposit_type"] = export_df["deposit_type"].map(DEPOSIT_LABELS).fillna(export_df["deposit_type"])
-    export_df = export_df.rename(columns={"deposit_type": "payment_method"})
+    export_df = export_df.rename(columns={"deposit_type": "payment_method", "room_ac_type": "room_type"})
     csv_bytes = export_df.to_csv(index=False).encode("utf-8")
     st.download_button("⬇️ Download filtered results as CSV", csv_bytes, "filtered_bookings.csv", "text/csv")
 
@@ -548,73 +540,4 @@ with tab_predict:
     )
     st.plotly_chart(fig_imp, use_container_width=True)
 
-    st.divider()
-    st.markdown("#### Try a booking")
 
-    with st.form("predict_form"):
-        f1, f2, f3 = st.columns(3)
-        with f1:
-            hotel_type_in = st.selectbox("Hotel type", hotel_types)
-            month_in = st.selectbox("Arrival month", MONTH_ORDER)
-            lead_time_in = st.number_input("Lead time (days)", 0, 800, 60)
-            adults_in = st.number_input("Adults", 0, 10, 2)
-            children_in = st.number_input("Children", 0, 10, 0)
-            babies_in = st.number_input("Babies", 0, 5, 0)
-        with f2:
-            weekend_nights_in = st.number_input("Weekend nights", 0, 20, 1)
-            week_nights_in = st.number_input("Week nights", 0, 30, 3)
-            meal_in = st.selectbox("Meal plan", sorted(df["meal"].unique()))
-            market_segment_in = st.selectbox("Market segment", sorted(df["market_segment"].unique()))
-            distribution_channel_in = st.selectbox("Distribution channel", sorted(df["distribution_channel"].unique()))
-            room_type_in = st.selectbox("Reserved room type", sorted(df["reserved_room_type"].unique()))
-        with f3:
-            deposit_display_options = [DEPOSIT_LABELS.get(d, d) for d in sorted(df["deposit_type"].unique())]
-            deposit_selected_display = st.selectbox("Payment method", deposit_display_options)
-            deposit_type_in = DEPOSIT_LABELS_REVERSE.get(deposit_selected_display, deposit_selected_display)
-            customer_type_in = st.selectbox("Customer type", sorted(df["customer_type"].unique()))
-            adr_in = st.number_input("ADR (avg daily rate)", 0.0, 600.0, 100.0)
-            special_requests_in = st.number_input("Total special requests", 0, 5, 0)
-            prev_cancel_in = st.number_input("Previous cancellations", 0, 20, 0)
-            prev_ok_in = st.number_input("Previous bookings not canceled", 0, 50, 0)
-
-        submitted = st.form_submit_button("Predict booking outcome")
-
-    if submitted:
-        row = pd.DataFrame([{
-            "lead_time": lead_time_in,
-            "arrival_date_week_number": 25,
-            "stays_in_weekend_nights": weekend_nights_in,
-            "stays_in_week_nights": week_nights_in,
-            "adults": adults_in,
-            "children": children_in,
-            "babies": babies_in,
-            "is_repeated_guest": 0,
-            "previous_cancellations": prev_cancel_in,
-            "previous_bookings_not_canceled": prev_ok_in,
-            "booking_changes": 0,
-            "days_in_waiting_list": 0,
-            "adr": adr_in,
-            "required_car_parking_spaces": 0,
-            "total_of_special_requests": special_requests_in,
-            "hotel_type": hotel_type_in,
-            "arrival_date_month": month_in,
-            "meal": meal_in,
-            "market_segment": market_segment_in,
-            "distribution_channel": distribution_channel_in,
-            "reserved_room_type": room_type_in,
-            "deposit_type": deposit_type_in,
-            "customer_type": customer_type_in,
-        }])
-        row_encoded = pd.get_dummies(row, columns=FEATURE_COLUMNS_CAT)
-        row_encoded = row_encoded.reindex(columns=model_columns, fill_value=0)
-        proba = model.predict_proba(row_encoded)[0, 1]
-
-        st.metric("Booking risk score", f"{proba * 100:.1f}%")
-        if proba >= 0.5:
-            st.error("⚠️ This booking is likely to be canceled.")
-            st.snow()
-        elif proba >= 0.25:
-            st.warning("🟡 This booking has a moderate chance of being canceled.")
-        else:
-            st.success("✅ This booking is likely to go through as planned.")
-            st.balloons()
